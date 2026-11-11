@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { boxCollider, circleCollider } from '../collision.js';
 import { mats, box, cyl, extrude } from '../machines/kit.js';
 import { PLANT } from './Plant.js';
+import '../../../../assets/building-kit.js';
 
 export const ZONES = {
   fuel: { x: -40, z: 42, r: 9 }, workshop: { x: -20, z: 44, r: 10 }, weigh: { x: -70, z: 18, hx: 2.8, hz: 8.5 }, kiosk: { x: -26, z: 10, r: 11 },
@@ -14,8 +15,9 @@ export const BLAST_SITES = [{ x0: 24.5, cz: -22, halfW: 15, floor: 0, depth: 4 }
 function sign(parent, text, w, h, x, y, z, ry, bg = '#12301f', fg = '#f2f2f2') {
   const cv = document.createElement('canvas'); cv.width = 256; cv.height = Math.round(256 * h / w); const c = cv.getContext('2d');
   c.fillStyle = bg; c.fillRect(0, 0, cv.width, cv.height); c.strokeStyle = fg; c.lineWidth = 6; c.strokeRect(6, 6, cv.width - 12, cv.height - 12);
-  c.fillStyle = fg; c.font = 'bold 34px Inter,Arial'; c.textAlign = 'center'; c.textBaseline = 'middle';
-  text.split('\n').forEach((l, i, a) => c.fillText(l, cv.width / 2, cv.height / 2 + (i - (a.length - 1) / 2) * 38));
+  const lines = text.split('\n'), fs = Math.min(34, (cv.height - 20) / lines.length / 1.12);   // texte réduit pour tenir dans le cadre (il débordait)
+  c.fillStyle = fg; c.font = `bold ${fs}px Inter,Arial`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  lines.forEach((l, i, a) => c.fillText(l, cv.width / 2, cv.height / 2 + (i - (a.length - 1) / 2) * fs * 1.12, cv.width - 20));
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex })); m.position.set(x, y, z); m.rotation.y = ry; parent.add(m);
   return m;
@@ -29,6 +31,9 @@ export class Site {
     const blue = new THREE.MeshStandardMaterial({ color: '#2d5f94', roughness: 0.6, metalness: 0.3 }), white = new THREE.MeshStandardMaterial({ color: '#e7e9ea', roughness: 0.7 });
     const red = new THREE.MeshStandardMaterial({ color: '#b3231c', roughness: 0.6 }), warn = new THREE.MeshStandardMaterial({ color: '#e8b800', roughness: 0.6 });
     const add = (c) => this.colliders.push(c);
+    // petits bâtiments du kit commun (assets/building-kit.js) : fenêtres en relief, porte, acrotère ; repère : façade +z
+    const BK = BuildingKit(THREE), kitAt = (o, m, x, z, yaw = 0, parent = G) => { const acc = BK.acc(); BK.building(acc, { roof: 'flat', equip: false, rand: Math.random, ...o }); const g = BK.group(acc.geometries(), BK.materials(m)); g.position.set(x, 0, z); g.rotation.y = yaw; parent.add(g); return g; };
+    const cabin = { parapet: 0.15, plinth: 0.2, bands: false, cornice: false, margin: 0.5, win: [0.9, 0.8], bay: 1.6, canopy: false };
 
     // --- trémie (ouverte à l'est) : sol incliné, trois murs de béton ---
     const h = PLANT.hopper, hx = (h.x0 + h.x1) / 2, hz = (h.z0 + h.z1) / 2, hw = h.x1 - h.x0, hd = h.z1 - h.z0;
@@ -42,7 +47,7 @@ export class Site {
     box(G, 6, 3.6, 7, blue, cx, 2.4, hz); box(G, 5.4, 0.5, 6.4, metal, cx, 4.45, hz);
     for (const s of [-1, 1]) cyl(G, 1.1, 0.5, metal, cx + 0.8, 3.0, hz + s * 3.55, 'z', 20);   // volants
     cyl(G, 0.4, 3, metal, cx - 1.8, 5.9, hz + 2, 'y', 10);
-    box(G, 3.2, 1.8, 3.6, white, cx + 4.2, 1.5, hz + 4.5); box(G, 3.4, 0.2, 3.8, metal, cx + 4.2, 2.5, hz + 4.5);   // groupe électrogène / local technique
+    kitAt({ ...cabin, w: 3.2, d: 3.6, h: 2.4, fh: 2.4, door: '+z', faces: ['+x', '-x'], win: [0.8, 0.6] }, { wall: '#e7e9ea', style: 'metal' }, cx + 4.2, hz + 4.5);   // groupe électrogène / local technique
     add(boxCollider(cx, hz, 3.0, 3.5)); add(boxCollider(cx + 4.2, hz + 4.5, 1.7, 1.9));
     sign(G, 'CONCASSEUR\nENTRÉE DANGER', 3, 1.2, cx + 3.01, 3.4, hz - 3.6, Math.PI / 2 * 0, '#7a1410');
     // --- convoyeur incliné jusqu'au tas de gravier ---
@@ -59,8 +64,9 @@ export class Site {
     // --- pont-bascule sur la route ---
     const w = ZONES.weigh; box(G, w.hx * 2, 0.25, w.hz * 2, metal, w.x, 0.1, w.z); box(G, 5.4, 0.1, 0.4, warn, w.x, 0.26, w.z - w.hz).visible = false;
     const cab = new THREE.Group(); cab.position.set(w.x + 6.5, 0, w.z); G.add(cab);
-    box(cab, 3, 2.6, 2.4, white, 0, 1.3, 0); box(cab, 3.4, 0.2, 2.8, blue, 0, 2.7, 0); box(cab, 2.6, 0.9, 0.05, new THREE.MeshStandardMaterial({ color: '#7eb6c9', roughness: 0.1, transparent: true, opacity: 0.6 }), 0, 1.6, -1.2);
-    add(boxCollider(w.x + 6.5, w.z, 1.6, 1.3)); sign(G, 'PONT-BASCULE\nPESÉE DES CAMIONS', 5, 1.4, w.x + 6.5, 3.8, w.z, -Math.PI / 2, '#12301f');
+    kitAt({ ...cabin, w: 3, d: 2.4, h: 2.6, fh: 2.6, door: '+z', faces: ['-z', '+x', '-x'], win: [1.1, 0.9] }, { wall: '#e7e9ea', style: 'metal', trim: '#2d5f94' }, 0, 0, 0, cab);
+    add(boxCollider(w.x + 6.5, w.z, 1.6, 1.3)); sign(G, 'PONT-BASCULE\nPESÉE DES CAMIONS', 5, 1.4, w.x + 6.38, 2.9, w.z + 4.2, -Math.PI / 2, '#12301f');
+    box(G, 0.12, 1.6, 5.2, metal, w.x + 6.45, 2.9, w.z + 4.2); for (const s of [-2.3, 2.3]) { box(G, 0.14, 2.2, 0.14, metal, w.x + 6.45, 1.1, w.z + 4.2 + s); add(circleCollider(w.x + 6.45, w.z + 4.2 + s, 0.25)); }
     // --- station-service ---
     const f = ZONES.fuel; box(G, 14, 0.15, 7, concrete, f.x, 0.08, f.z);
     for (const s of [-1, 1]) { box(G, 0.4, 5, 0.4, metal, f.x + s * 6, 2.5, f.z - 2.8); box(G, 0.4, 5, 0.4, metal, f.x + s * 6, 2.5, f.z + 2.8); add(circleCollider(f.x + s * 6, f.z - 2.8, 0.5)); add(circleCollider(f.x + s * 6, f.z + 2.8, 0.5)); }
@@ -69,19 +75,22 @@ export class Site {
     cyl(G, 1.6, 4.5, white, f.x, 1.6, f.z - 8, 'x', 20); sign(G, 'GAZOLE\n1,25 €/L', 3, 1.2, f.x, 5.9, f.z + 4.2, 0, '#7a1410'); add(boxCollider(f.x, f.z - 8, 2.4, 1.7));
     // --- atelier de réparation ---
     const wk = ZONES.workshop, wx = wk.x, wz = wk.z + 12;
-    box(G, 20, 7, 0.5, metal, wx, 3.5, wz + 6); box(G, 0.5, 7, 12, metal, wx - 10, 3.5, wz); box(G, 0.5, 7, 12, metal, wx + 10, 3.5, wz); box(G, 21, 0.5, 13, new THREE.MeshStandardMaterial({ color: '#3d4a52', roughness: 0.6, metalness: 0.5 }), wx, 7.2, wz);
+    kitAt({ w: 20, d: 12, h: 7, fh: 7, parapet: 0.6, door: false, faces: ['+z', '+x', '-x'], win: [2.4, 1.2], bay: 5, cornice: false, plinth: 0.3,
+      openings: [{ face: '-z', s: 0, w: 14, h: 5.5, type: 'bay' }] }, { wall: '#7d8a92', style: 'metal' }, wx, wz);
     box(G, 19, 0.15, 12, concrete, wx, 0.08, wz); add(boxCollider(wx, wz + 6, 10, 0.3)); add(boxCollider(wx - 10, wz, 0.3, 6)); add(boxCollider(wx + 10, wz, 0.3, 6));
-    sign(G, 'ATELIER\nRÉPARATIONS', 6, 1.8, wx, 8.4, wz - 6.3, 0, '#12301f');
+    sign(G, 'ATELIER\nRÉPARATIONS', 5, 1.5, wx, 6.55, wz - 6.03, Math.PI, '#12301f');
     for (const s of [-1, 1]) { box(G, 0.5, 4, 0.5, warn, wx + s * 3, 2, wz - 5); }
     // --- bureau (algeco) + container ---
     for (const [x, z, m, ry] of [[-58, 56, white, 0], [-52, 56, white, 0], [-60, 36, blue, Math.PI / 2], [-60, 31, blue, Math.PI / 2]]) {
-      const c = new THREE.Group(); c.position.set(x, 0, z); c.rotation.y = ry; G.add(c); box(c, 6, 2.7, 2.5, m, 0, 1.45, 0); box(c, 6.2, 0.15, 2.7, metal, 0, 2.85, 0);
-      for (let i = -1; i <= 1; i += 2) box(c, 1, 0.9, 0.06, new THREE.MeshStandardMaterial({ color: '#7eb6c9', roughness: 0.1 }), i * 1.6, 1.7, 1.27);
+      const office = m === white;   // bureau : porte et fenêtres ; container : portes de chargement en bout
+      kitAt(office ? { ...cabin, w: 6, d: 2.5, h: 2.7, fh: 2.7, door: '+z', doorS: 1.8, faces: ['+z', '-z'], win: [1.0, 0.9] }
+        : { ...cabin, w: 6, d: 2.5, h: 2.6, fh: 2.6, door: false, faces: [], openings: [{ face: '+x', s: 0, w: 2.1, h: 2.3, type: 'garage' }] },
+        { wall: office ? '#e7e9ea' : '#2d5f94', style: 'metal' }, x, z, ry);
       add(boxCollider(x, z, ry ? 1.3 : 3.1, ry ? 3.1 : 1.3));
     }
     sign(G, 'CARRIÈRE DU VAL\nBienvenue', 5, 1.6, -76.5, 3.6, 66, 0, '#12301f');
     // --- cabine de tir de mine ---
-    const k = ZONES.kiosk; box(G, 2.4, 2.4, 2.4, warn, k.x, 1.2, k.z); box(G, 2.6, 0.15, 2.6, new THREE.MeshStandardMaterial({ color: '#333' }), k.x, 2.45, k.z);
+    const k = ZONES.kiosk; kitAt({ ...cabin, w: 2.4, d: 2.4, h: 2.4, fh: 2.4, door: '+z', faces: ['+x', '-x'], win: [0.7, 0.6] }, { wall: '#e8b800', style: 'metal', trim: '#333333' }, k.x, k.z);
     sign(G, 'TIR DE MINE\nSORTEZ DE LA ZONE', 2.2, 0.9, k.x, 1.5, k.z - 1.22, Math.PI, '#7a1410'); add(boxCollider(k.x, k.z, 1.3, 1.3));
     cyl(G, 0.12, 4, metal, k.x + 1.6, 2, k.z, 'y', 8); const bm = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 8), new THREE.MeshStandardMaterial({ color: '#ff8a00', emissive: '#ff6a00', emissiveIntensity: 0.4 })); bm.position.set(k.x + 1.6, 4.1, k.z); G.add(bm);
     // --- poteaux d'éclairage + barrières de chantier ---
