@@ -22,8 +22,11 @@ export class CameraRig {
     const cam = this.camera;
     if (this.cabin) {
       mdl.root.updateMatrixWorld(true); mdl.eye.getWorldPosition(cam.position);
-      const base = m.id === 'excavator' ? m.h + m.tool.swing : m.h, a = base + o.yaw * 1.5, pt = -0.12 - o.pitch * 0.6;
-      cam.lookAt(cam.position.x + Math.sin(a), cam.position.y + pt, cam.position.z + Math.cos(a)); this.camYaw = a; this.follow = m.h;
+      const sw = (m.id === 'excavator' ? m.tool.swing : 0) + o.yaw * 1.5, pt = -0.12 - o.pitch * 0.6;
+      // suit l'inclinaison de l'engin (pente, tas) : le poste de conduite reste droit devant les yeux
+      mdl.root.getWorldQuaternion(cam.quaternion);
+      this._q = this._q || new cam.quaternion.constructor(); this._e = this._e || cam.rotation.clone();
+      cam.quaternion.multiply(this._q.setFromEuler(this._e.set(pt, Math.PI + sw, 0, 'YXZ'))); this.camYaw = m.h + sw; this.follow = m.h;
     } else {
       this.follow += wrap(m.h - this.follow) * (1 - Math.exp(-(m.s.type === 'tracked' ? 1.6 : 3) * dt));
       const far = this.view === 1, d = (m.s.L * (far ? 1.8 : 0.95) + 6) * (1 + this.dist), a = this.follow + o.yaw, cp = Math.cos(o.pitch);

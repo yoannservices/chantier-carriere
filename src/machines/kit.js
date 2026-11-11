@@ -113,7 +113,7 @@ export function cabin(parent, { w = 1.7, h = 1.9, d = 1.8, x = 0, y = 0, z = 0, 
   } else {
     for (const sx of [-1, 1]) { const st = cyl(g, 0.015, 0.34, k.dark, sx * 0.42, 0.6, 0.0, 'y', 6); st.userData.stick = sx; cyl(g, 0.035, 0.07, k.black, sx * 0.42, 0.79, 0.0, 'y', 8); }
   }
-  const eye = new THREE.Object3D(); eye.position.set(0, 1.28, -0.15); g.add(eye);
+  const eye = new THREE.Object3D(); eye.position.set(0, 1.34, -0.34); g.add(eye); // tête contre le dossier : volant en bas de l'image, pas en plein écran
   const dr = { cx, tex, last: '' };
   const draw = (s) => {
     const key = s.join('|'); if (key === dr.last) return; dr.last = key;

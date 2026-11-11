@@ -64,3 +64,11 @@ node --experimental-vm-modules test/syntax.mjs
 ```
 
 Puis `loisirs/chantier-carriere/index.html` via le serveur `site`. Les modèles sont procéduraux (aucun .glb libre de droits pour ce matériel). Non vérifié : conduite à la manette réelle, son, FPS sur un vrai GPU.
+
+## Fiche technique
+
+Résumé de ce que fait le code, tenu à jour à chaque modification : le lire suffit pour vérifier une information sans relire tout le jeu.
+
+- **Engins** : procéduraux (pas de .glb), `src/machines/` (`kit.js` : cabine, œil du conducteur à (0 ; 1,34 ; −0,34)).
+- **Caméras (C, `src/camera.js`)** : Vue poursuite, Vue éloignée, Vue cabine. La vue cabine suit l'inclinaison de l'engin (quaternion de la machine, pente et tas compris) plus le regard souris ; sur la pelle elle tourne avec la tourelle.
+- **Sauvegarde** : `chantier-carriere.save.v2` (+ `.terrain` pour le relief creusé), graphismes `chantier-carriere.gfx.v1`.
